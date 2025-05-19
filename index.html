@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Chunked File Upload</title>
+      <style>
+            body {
+                  font-family: sans-serif;
+            }
+
+            #uploadForm {
+                  margin-bottom: 20px;
+            }
+
+            #progressContainer {
+                  border: 1px solid #ccc;
+                  height: 20px;
+                  width: 300px;
+                  margin-bottom: 10px;
+            }
+
+            #progressBar {
+                  background-color: green;
+                  height: 100%;
+                  width: 0%;
+            }
+
+            #message {
+                  margin-top: 10px;
+                  font-weight: bold;
+            }
+      </style>
+</head>
+
+<body>
+      <h1>Chunked File Upload</h1>
+
+      <form id="uploadForm">
+            <div>
+                  <label for="fileInput">Pilih File:</label>
+                  <input type="file" id="fileInput" required>
+            </div>
+            <button type="button" onclick="startUpload()">Mulai Upload</button>
+      </form>
+
+      <div id="progressContainer">
+            <div id="progressBar"></div>
+      </div>
+      <div id="message"></div>
+
+      <script src="script.js"></script>
+</body>
+
+</html>
