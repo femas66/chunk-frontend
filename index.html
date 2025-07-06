@@ -1,56 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Chunked File Upload</title>
-      <style>
-            body {
-                  font-family: sans-serif;
-            }
-
-            #uploadForm {
-                  margin-bottom: 20px;
-            }
-
-            #progressContainer {
-                  border: 1px solid #ccc;
-                  height: 20px;
-                  width: 300px;
-                  margin-bottom: 10px;
-            }
-
-            #progressBar {
-                  background-color: green;
-                  height: 100%;
-                  width: 0%;
-            }
-
-            #message {
-                  margin-top: 10px;
-                  font-weight: bold;
-            }
-      </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GCS Signed URL Upload with Progress</title>
+    <style>
+        body { font-family: sans-serif; padding: 2em; max-width: 600px; margin: auto; }
+        input, button { font-size: 1em; padding: 0.5em; margin-top: 0.5em; }
+        #status { margin-top: 1em; font-weight: bold; }
+        #progressBar { width: 100%; margin-top: 0.5em; }
+    </style>
 </head>
-
 <body>
-      <h1>Chunked File Upload</h1>
+    <h1>Upload File ke GCS via Signed URL</h1>
+    <p>Pilih file, lalu klik tombol "Upload" untuk memulai.</p>
+    <input type="file" id="fileInput">
+    <button onclick="uploadFile()">Upload</button>
 
-      <form id="uploadForm">
-            <div>
-                  <label for="fileInput">Pilih File:</label>
-                  <input type="file" id="fileInput" required>
-            </div>
-            <button type="button" onclick="startUpload()">Mulai Upload</button>
-      </form>
+    <div id="status"></div>
 
-      <div id="progressContainer">
-            <div id="progressBar"></div>
-      </div>
-      <div id="message"></div>
+    <!-- Elemen Progress Bar -->
+    <progress id="progressBar" value="0" max="100" style="width: 100%; display: none;"></progress>
 
-      <script src="script.js"></script>
+    <div id="uploadedUrl" style="margin-top: 1em; word-wrap: break-word;"></div>
+
+    <script>
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const statusDiv = document.getElementById('status');
+            const uploadedUrlDiv = document.getElementById('uploadedUrl');
+            const progressBar = document.getElementById('progressBar');
+
+            if (fileInput.files.length === 0) {
+                statusDiv.textContent = 'Silakan pilih file terlebih dahulu!';
+                statusDiv.style.color = 'red';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            statusDiv.textContent = 'Meminta URL untuk upload...';
+            statusDiv.style.color = 'orange';
+            progressBar.style.display = 'none';
+            uploadedUrlDiv.innerHTML = '';
+
+            try {
+                // Langkah 1: Minta signed URL dari backend Anda
+                const backendResponse = await fetch('http://localhost:1234/upload', { // Ganti dengan URL backend Anda
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // 'Authorization': 'Bearer YOUR_JWT_TOKEN' // Tambahkan jika endpoint dilindungi
+                    },
+                    body: JSON.stringify({
+                        file_name: file.name,
+                        content_type: file.type
+                    })
+                });
+
+                if (!backendResponse.ok) {
+                    throw new Error('Gagal mendapatkan signed URL dari backend.');
+                }
+
+                const responseData = await backendResponse.json();
+                const signedURL = responseData.data.signed_url;
+                const publicURL = responseData.data.public_url;
+
+                console.log('Signed URL: ', signedURL);
+                console.log('Public URL: ', publicURL);
+
+                statusDiv.textContent = 'Mengunggah file langsung ke GCS...';
+                statusDiv.style.color = 'blue';
+                progressBar.style.display = 'block';
+                progressBar.value = 0;
+
+                // Langkah 2: Gunakan XMLHttpRequest untuk mengunggah file agar bisa mendapatkan progres
+                const xhr = new XMLHttpRequest();
+
+                // Event listener untuk progres upload
+                xhr.upload.onprogress = function(event) {
+                    if (event.lengthComputable) {
+                        const percentComplete = (event.loaded / event.total) * 100;
+                        progressBar.value = percentComplete;
+                        statusDiv.textContent = `Mengunggah... ${Math.round(percentComplete)}%`;
+                    }
+                };
+
+                // Event listener untuk saat upload selesai
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        statusDiv.textContent = 'Upload berhasil!';
+                        statusDiv.style.color = 'green';
+                        progressBar.style.display = 'none';
+                        uploadedUrlDiv.innerHTML = `File tersedia di: <a href="${publicURL}" target="_blank">${publicURL}</a>`;
+                    } else {
+                        throw new Error(`Gagal mengunggah file ke GCS. Status: ${xhr.status}`);
+                    }
+                };
+
+                // Event listener untuk error
+                xhr.onerror = function() {
+                    throw new Error('Terjadi error jaringan saat mengunggah.');
+                };
+
+                xhr.open('PUT', signedURL);
+                // xhr.setRequestHeader('Content-Type', file.type);
+                xhr.send(file);
+
+            } catch (error) {
+                statusDiv.textContent = `Error: ${error.message}`;
+                statusDiv.style.color = 'red';
+                progressBar.style.display = 'none';
+                console.error(error);
+            }
+        }
+    </script>
 </body>
-
 </html>
